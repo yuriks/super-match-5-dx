@@ -1,0 +1,10 @@
+/bin
+/obj
+
+# Visual Studio generated projects
+/*.sdf
+/*.opensdf
+/*.sln
+/*.vcxproj
+/*.vcxproj.*
+/*.suo
