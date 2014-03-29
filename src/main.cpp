@@ -1,54 +1,109 @@
 #include "math/vec.hpp"
 #include <iostream>
 #include <algorithm>
-#include <SDL2/SDL.h>
+#include "render/SpriteBuffer.hpp"
+#include "sdl_window.hpp"
+#include "util.hpp"
+#include <cstdint>
+#include <algorithm>
+#include <array>
+#include <numeric>
+#include "range_macro.hpp"
+#include <cassert>
+#include "render/texture.hpp"
 
-static void show_error(const char* message) {
-	if (SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", message, nullptr) != 0) {
-		std::cerr << message << std::endl;
-	}
-}
+static const unsigned int NUM_CARD_SPRITES = 15;
 
-void game_loop(SDL_Window* window) {
+struct GameState {
 	bool running = true;
 
-	Sint32 frame_time_behind = 0;
-	static const Sint32 MAX_LAG_TIME = 100;
+	std::vector<int> cards;
+	std::vector<float> card_anim_state;
+	int playfield_width; // in cards
+	int playfield_height;
 
-	const Sint32 fixed_frame_time = 1000 / 60;
+	GameState(RandomGenerator& rng, int w, int h) {
+		playfield_width = w;
+		playfield_height = h;
+		cards.reserve(w * h);
 
-	while (running) {
-		// The duration we're hoping to have on this frame
-		const Sint32 desired_frame_time = fixed_frame_time - frame_time_behind;
+		const unsigned int num_pairs = w * h / 2;
+		assert(num_pairs <= NUM_CARD_SPRITES);
 
-		const Uint32 frame_start = SDL_GetTicks();
+		std::array<int, NUM_CARD_SPRITES> card_sprites;
+		std::iota(RANGE(card_sprites), 0);
+		std::shuffle(RANGE(card_sprites), rng);
 
-		SDL_Event ev;
-		while (SDL_PollEvent(&ev)) {
-			switch (ev.type) {
-			case SDL_QUIT:
-				running = false;
-				break;
-			default:
-				break;
-			}
+		for (size_t i = 0; i < num_pairs; ++i) {
+			cards.push_back(card_sprites[i]);
+			cards.push_back(card_sprites[i]);
 		}
 
-		// do update here
+		std::shuffle(RANGE(cards), rng);
 
-		SDL_GL_SwapWindow(window);
+		card_anim_state.resize(cards.size(), 0.0f);
+	}
+};
 
-		const Sint32 time_elapsed_in_frame = SDL_GetTicks() - frame_start;
+
+// `DrawState` conflicts with a macro in `windows.h`.
+struct YksDrawState {
+	yks::SpriteBufferIndices sprite_buffer_indices;
+	yks::SpriteBuffer card_buffer;
+
+	yks::TextureInfo card_texture;
+
+	YksDrawState()
+		: card_texture(yks::loadTexture("data/cards.png"))
+	{
+		card_buffer.texture_size = yks::mvec2(card_texture.width, card_texture.height);
+	}
+};
+
+void update_game(GameState& state) {
+	(void) state;
+}
+
+void draw_game(const GameState& game_state, YksDrawState& draw_state) {
+	(void) game_state;
+	(void) draw_state;
+}
+
+void game_loop(Window& window) {
+	RandomGenerator rng;
+	GameState game_state(rng, 4, 4);
+	YksDrawState draw_state;
+
+	int32_t frame_time_behind = 0;
+	static const int32_t MAX_LAG_TIME = 100;
+	const int32_t fixed_frame_time = 1000 / 60;
+
+	while (game_state.running) {
+		// The duration we're hoping to have on this frame
+		const int32_t desired_frame_time = fixed_frame_time - frame_time_behind;
+
+		const uint32_t frame_start = window.getTicks();
+
+		if (!window.handleEvents()) {
+			game_state.running = false;
+		}
+
+		update_game(game_state);
+		draw_game(game_state, draw_state);
+
+		window.swapBuffers();
+
+		const int32_t time_elapsed_in_frame = window.getTicks() - frame_start;
 
 		std::cout << "FRAMETIME: " << time_elapsed_in_frame << '\n';
 
 		if (time_elapsed_in_frame < desired_frame_time) {
-			const Sint32 sleep_len = desired_frame_time - time_elapsed_in_frame;
-			SDL_Delay(sleep_len);
+			const int32_t sleep_len = desired_frame_time - time_elapsed_in_frame;
+			window.delay(sleep_len);
 		}
 
 		frame_time_behind -= fixed_frame_time;
-		frame_time_behind += SDL_GetTicks() - frame_start;
+		frame_time_behind += window.getTicks() - frame_start;
 		if (frame_time_behind > MAX_LAG_TIME) {
 			frame_time_behind = MAX_LAG_TIME;
 		}
@@ -56,20 +111,12 @@ void game_loop(SDL_Window* window) {
 }
 
 int main(int , char *[]) {
-	if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-		show_error("Failed to initialize SDL");
-		return 1;
-	}
-
-	SDL_Window* window = SDL_CreateWindow("Super Match 5 DX", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 480, SDL_WINDOW_OPENGL);
-	if (window == nullptr) {
-		show_error("Failed to create window.");
+	Window window;
+	if (!window.isValid()) {
 		return 1;
 	}
 
 	game_loop(window);
 
-	SDL_DestroyWindow(window);
-	SDL_Quit();
 	return 0;
 }
