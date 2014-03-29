@@ -77,7 +77,7 @@ void draw_game(const GameState& game_state, YksDrawState& draw_state) {
 
 	for (int y = 0; y < game_state.playfield_height; ++y) {
 		for (int x = 0; x < game_state.playfield_width; ++x) {
-			card_spr.pos = yks::mvec2(x * (CARD_SIZE + 8), y * (CARD_SIZE + 8));
+			card_spr.mat.identity().translate(yks::mvec2(x * (CARD_SIZE + 8), y * (CARD_SIZE + 8)).typecast<float>());
 			draw_state.card_buffer.append(card_spr);
 		}
 	}
