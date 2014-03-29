@@ -4,7 +4,7 @@
 #include <memory>
 
 struct Window {
-	Window();
+	Window(int width, int height);
 	~Window();
 	bool isValid() const;
 

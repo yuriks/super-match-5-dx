@@ -11,8 +11,14 @@
 #include "range_macro.hpp"
 #include <cassert>
 #include "render/texture.hpp"
+#include "gl/gl_1_5.h"
+#include "math/MatrixTransform.hpp"
 
 static const unsigned int NUM_CARD_SPRITES = 15;
+static const int CARD_SIZE = 64;
+
+static const int WINDOW_WIDTH = 360;
+static const int WINDOW_HEIGHT = 480;
 
 struct GameState {
 	bool running = true;
@@ -65,8 +71,41 @@ void update_game(GameState& state) {
 }
 
 void draw_game(const GameState& game_state, YksDrawState& draw_state) {
-	(void) game_state;
-	(void) draw_state;
+	// Draw cards
+	yks::Sprite card_spr;
+	card_spr.img = yks::IntRect{ 0, 0, CARD_SIZE, CARD_SIZE };
+
+	for (int y = 0; y < game_state.playfield_height; ++y) {
+		for (int x = 0; x < game_state.playfield_width; ++x) {
+			card_spr.pos = yks::mvec2(x * (CARD_SIZE + 8), y * (CARD_SIZE + 8));
+			draw_state.card_buffer.append(card_spr);
+		}
+	}
+
+	// Submit everything
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	glBindTexture(GL_TEXTURE_2D, draw_state.card_texture.handle.name);
+	draw_state.card_buffer.draw(draw_state.sprite_buffer_indices);
+}
+
+void setup_intial_opengl_state() {
+	YKS_CHECK_GL_PARANOID;
+
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+	glMatrixMode(GL_PROJECTION);
+	yks::mat4 projection_matrix = yks::orthographic_proj(0, static_cast<float>(WINDOW_WIDTH), static_cast<float>(WINDOW_HEIGHT), 0, -10, 10);
+	glLoadTransposeMatrixf(projection_matrix.as_row_major());
+
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+
+	glEnable(GL_TEXTURE_2D);
+	glClearColor(0.2f, 0.2f, 0.2f, 0.0f);
+
+	YKS_CHECK_GL_PARANOID;
 }
 
 void game_loop(Window& window) {
@@ -77,6 +116,8 @@ void game_loop(Window& window) {
 	int32_t frame_time_behind = 0;
 	static const int32_t MAX_LAG_TIME = 100;
 	const int32_t fixed_frame_time = 1000 / 60;
+
+	setup_intial_opengl_state();
 
 	while (game_state.running) {
 		// The duration we're hoping to have on this frame
@@ -111,7 +152,7 @@ void game_loop(Window& window) {
 }
 
 int main(int , char *[]) {
-	Window window;
+	Window window(WINDOW_WIDTH, WINDOW_HEIGHT);
 	if (!window.isValid()) {
 		return 1;
 	}

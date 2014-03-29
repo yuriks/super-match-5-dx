@@ -15,14 +15,14 @@ struct Window::Impl {
 	SDL_GLContext context = nullptr;
 	bool gl_loaded = false;
 
-	Impl() {
+	Impl(int window_width, int window_height) {
 		if (SDL_Init(SDL_INIT_VIDEO) != 0) {
 			show_error("Failed to initialize SDL");
 			return;
 		}
 		sdl_initialized = true;
 
-		window = SDL_CreateWindow("Super Match 5 DX", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 480, SDL_WINDOW_OPENGL);
+		window = SDL_CreateWindow("Super Match 5 DX", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, window_width, window_height, SDL_WINDOW_OPENGL);
 		if (window == nullptr) {
 			show_error("Failed to create window.");
 			return;
@@ -38,6 +38,8 @@ struct Window::Impl {
 			return;
 		}
 		gl_loaded = true;
+
+		glViewport(0, 0, window_width, window_height);
 	}
 
 	~Impl() {
@@ -78,8 +80,8 @@ struct Window::Impl {
 	}
 };
 
-Window::Window()
-	: impl(std::make_unique<Impl>())
+Window::Window(int width, int height)
+	: impl(std::make_unique<Impl>(width, height))
 {}
 
 Window::~Window() {}
