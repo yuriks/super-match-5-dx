@@ -35,5 +35,7 @@ solution "SuperMatch5DX"
 		links { "SDL2", "SDL2main", "libyuriks" }
 
 		configuration "Windows"
-			linkoptions { "/NODEFAULTLIB:msvcrt" }
 			links { "OpenGL32" }
+
+		configuration { "Windows", "Debug" }
+			linkoptions { "/NODEFAULTLIB:msvcrt" }
