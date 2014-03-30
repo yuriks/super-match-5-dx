@@ -13,8 +13,10 @@
 #include "render/texture.hpp"
 #include "gl/gl_1_5.h"
 #include "math/MatrixTransform.hpp"
+#include "math/misc.hpp"
+#include "srgb.hpp"
 
-static const unsigned int NUM_CARD_SPRITES = 15;
+static const unsigned int NUM_CARD_SPRITES = 13;
 static const int CARD_SIZE = 64;
 
 static const int WINDOW_WIDTH = 360;
@@ -67,17 +69,35 @@ struct YksDrawState {
 };
 
 void update_game(GameState& state) {
-	(void) state;
+	for (size_t i = 0; i < state.card_anim_state.size(); ++i) {
+		state.card_anim_state[i] += 0.002f * i;
+	}
 }
 
 void draw_game(const GameState& game_state, YksDrawState& draw_state) {
 	// Draw cards
 	yks::Sprite card_spr;
-	card_spr.img = yks::IntRect{ 0, 0, CARD_SIZE, CARD_SIZE };
 
 	for (int y = 0; y < game_state.playfield_height; ++y) {
 		for (int x = 0; x < game_state.playfield_width; ++x) {
-			card_spr.mat.identity().translate(yks::mvec2(x * (CARD_SIZE + 8), y * (CARD_SIZE + 8)).typecast<float>());
+			const size_t card_index = y * game_state.playfield_width + x;
+			const float card_hscale = std::cos(game_state.card_anim_state[card_index] * yks::pi);
+			const yks::vec2 half_card = yks::mvec2(0.5f * CARD_SIZE, 0.5f * CARD_SIZE);
+
+			uint8_t col = yks::byte_from_linear(std::abs(card_hscale));
+			card_spr.color = yks::Color{ col, col, col, 255 };
+			if (card_hscale < 0.0f) {
+				const int tile_i = game_state.cards[card_index] + 1;
+				const int tile_x = tile_i % 4;
+				const int tile_y = tile_i / 4;
+				card_spr.img = yks::IntRect{ tile_x * CARD_SIZE, tile_y * CARD_SIZE, CARD_SIZE, CARD_SIZE };
+			} else {
+				card_spr.img = yks::IntRect{ 0, 0, CARD_SIZE, CARD_SIZE };
+			}
+			card_spr.mat.identity()
+				.translate(-half_card)
+				.scale(yks::mvec2(std::abs(card_hscale), 1.0f))
+				.translate(half_card + yks::mvec2(x * (CARD_SIZE + 8), y * (CARD_SIZE + 8)).typecast<float>());
 			draw_state.card_buffer.append(card_spr);
 		}
 	}
@@ -87,6 +107,9 @@ void draw_game(const GameState& game_state, YksDrawState& draw_state) {
 
 	glBindTexture(GL_TEXTURE_2D, draw_state.card_texture.handle.name);
 	draw_state.card_buffer.draw(draw_state.sprite_buffer_indices);
+	draw_state.card_buffer.clear();
+
+	YKS_CHECK_GL_PARANOID;
 }
 
 void setup_intial_opengl_state() {
@@ -108,8 +131,13 @@ void setup_intial_opengl_state() {
 	YKS_CHECK_GL_PARANOID;
 }
 
+static std::random_device::result_type get_seed() {
+	std::random_device rd;
+	return rd();
+}
+
 void game_loop(Window& window) {
-	RandomGenerator rng;
+	RandomGenerator rng(get_seed());
 	GameState game_state(rng, 4, 4);
 	YksDrawState draw_state;
 
