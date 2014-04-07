@@ -141,17 +141,23 @@ void game_loop(Window& window) {
 	GameState game_state(rng, 4, 4);
 	YksDrawState draw_state;
 
-	int32_t frame_time_behind = 0;
-	static const int32_t MAX_LAG_TIME = 100;
-	const int32_t fixed_frame_time = 1000 / 60;
+	float frame_time_behind = 0.0f;
+	static const float MAX_LAG_TIME = 100;
+	const float fixed_frame_time = 1000.0f / 60;
+
+	std::array<int32_t, 60> frametimes;
+	unsigned int frametimes_pos = 0;
+	frametimes.fill(static_cast<int32_t>(fixed_frame_time));
 
 	setup_intial_opengl_state();
 
 	while (game_state.running) {
-		// The duration we're hoping to have on this frame
-		const int32_t desired_frame_time = fixed_frame_time - frame_time_behind;
-
 		const uint32_t frame_start = window.getTicks();
+
+		frame_time_behind += fixed_frame_time;
+
+		// The duration we're hoping to have on this frame
+		const int32_t desired_frame_time = static_cast<int32_t>(frame_time_behind);
 
 		if (!window.handleEvents()) {
 			game_state.running = false;
@@ -162,17 +168,22 @@ void game_loop(Window& window) {
 
 		window.swapBuffers();
 
-		const int32_t time_elapsed_in_frame = window.getTicks() - frame_start;
+		const double frametime_avg = std::accumulate(frametimes.cbegin(), frametimes.cend(), 0.0) / frametimes.size();
+		std::cout << "FRAMETIME: " << frametime_avg << '\n';
 
-		std::cout << "FRAMETIME: " << time_elapsed_in_frame << '\n';
+		const int32_t time_elapsed_in_frame = window.getTicks() - frame_start;
 
 		if (time_elapsed_in_frame < desired_frame_time) {
 			const int32_t sleep_len = desired_frame_time - time_elapsed_in_frame;
 			window.delay(sleep_len);
 		}
 
-		frame_time_behind -= fixed_frame_time;
-		frame_time_behind += window.getTicks() - frame_start;
+		const int32_t final_frame_len = window.getTicks() - frame_start;
+
+		frametimes[frametimes_pos] = final_frame_len;
+		if (++frametimes_pos >= frametimes.size()) frametimes_pos = 0;
+
+		frame_time_behind -= final_frame_len;
 		if (frame_time_behind > MAX_LAG_TIME) {
 			frame_time_behind = MAX_LAG_TIME;
 		}
