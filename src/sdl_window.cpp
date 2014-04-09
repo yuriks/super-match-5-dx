@@ -65,12 +65,18 @@ struct Window::Impl {
 		SDL_GL_SwapWindow(window);
 	}
 
-	bool handleEvents() {
+	bool handleEvents(WindowEventInfo& info) {
 		SDL_Event ev;
+
 		while (SDL_PollEvent(&ev)) {
 			switch (ev.type) {
 			case SDL_QUIT:
 				return false;
+			case SDL_MOUSEBUTTONDOWN:
+				info.mouse_button = ev.button.button;
+				info.mouse_click_x = ev.button.x;
+				info.mouse_click_y = ev.button.y;
+				break;
 			default:
 				break;
 			}
@@ -102,6 +108,6 @@ void Window::delay(uint32_t duration) {
 	SDL_Delay(duration);
 }
 
-bool Window::handleEvents() {
-	return impl->handleEvents();
+bool Window::handleEvents(WindowEventInfo& info) {
+	return impl->handleEvents(info);
 }

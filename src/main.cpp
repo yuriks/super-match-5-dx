@@ -22,10 +22,17 @@ static const int CARD_SIZE = 64;
 static const int WINDOW_WIDTH = 360;
 static const int WINDOW_HEIGHT = 480;
 
+enum class CardState {
+	HIDDEN,
+	SELECTED,
+	MATCHED
+};
+
 struct GameState {
 	bool running = true;
 
 	std::vector<int> cards;
+	std::vector<CardState> card_states;
 	std::vector<float> card_anim_state;
 	int playfield_width; // in cards
 	int playfield_height;
@@ -49,6 +56,7 @@ struct GameState {
 
 		std::shuffle(RANGE(cards), rng);
 
+		card_states.resize(cards.size(), CardState::HIDDEN);
 		card_anim_state.resize(cards.size(), 0.0f);
 	}
 };
@@ -68,9 +76,26 @@ struct YksDrawState {
 	}
 };
 
-void update_game(GameState& state) {
-	for (size_t i = 0; i < state.card_anim_state.size(); ++i) {
-		state.card_anim_state[i] += 0.002f * i;
+yks::IntRect getRectForCard(const GameState& state, const int card_i) {
+	const int card_x = card_i % state.playfield_width;
+	const int card_y = card_i / state.playfield_width;
+	return yks::IntRect{ card_x * (CARD_SIZE + 8), card_y * (CARD_SIZE + 8), CARD_SIZE, CARD_SIZE };
+}
+
+bool isPointInRect(const int x, const int y, const yks::IntRect& rect) {
+	return x >= rect.x && x < rect.x + rect.w && y >= rect.y && y < rect.y + rect.h;
+}
+
+void update_game(GameState& state, WindowEventInfo& event_info) {
+	for (size_t i = 0; i < state.cards.size(); ++i) {
+		const yks::IntRect card_rect = getRectForCard(state, i);
+		if (event_info.mouse_button == 1 && isPointInRect(event_info.mouse_click_x, event_info.mouse_click_y, card_rect)) {
+			state.card_states[i] = CardState::SELECTED;
+		}
+
+		const float anim_target = state.card_states[i] == CardState::HIDDEN ? 0.0f : 1.0f;
+		state.card_anim_state[i] = stepTowards(state.card_anim_state[i], anim_target, 0.02f);
+		//state.card_anim_state[i] += 0.002f * i;
 	}
 }
 
@@ -159,11 +184,12 @@ void game_loop(Window& window) {
 		// The duration we're hoping to have on this frame
 		const int32_t desired_frame_time = static_cast<int32_t>(frame_time_behind);
 
-		if (!window.handleEvents()) {
+		WindowEventInfo event_info;
+		if (!window.handleEvents(event_info)) {
 			game_state.running = false;
 		}
 
-		update_game(game_state);
+		update_game(game_state, event_info);
 		draw_game(game_state, draw_state);
 
 		window.swapBuffers();
