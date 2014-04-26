@@ -28,8 +28,20 @@ enum class CardState {
 	MATCHED
 };
 
+enum class GamePhase {
+	ATTRACT, // No game in progress
+	FLIP_FIRST, // Waiting to flip first card
+	FLIP_SECOND, // Waiting to flip second card
+	WAIT // Delaying to show flipped cards
+};
+
 struct GameState {
 	bool running = true;
+
+	GamePhase phase = GamePhase::FLIP_FIRST;
+	size_t first_card;
+	size_t second_card;
+	int wait_frames;
 
 	std::vector<int> cards;
 	std::vector<CardState> card_states;
@@ -87,12 +99,54 @@ bool isPointInRect(const int x, const int y, const yks::IntRect& rect) {
 }
 
 void update_game(GameState& state, WindowEventInfo& event_info) {
-	for (size_t i = 0; i < state.cards.size(); ++i) {
+	auto hasCardBeenClicked = [&](size_t i) {
 		const yks::IntRect card_rect = getRectForCard(state, i);
-		if (event_info.mouse_button == 1 && isPointInRect(event_info.mouse_click_x, event_info.mouse_click_y, card_rect)) {
-			state.card_states[i] = CardState::SELECTED;
-		}
+		return event_info.mouse_button == 1 && isPointInRect(event_info.mouse_click_x, event_info.mouse_click_y, card_rect);
+	};
 
+	auto getClickedCard = [&]() -> int {
+		for (size_t i = 0; i < state.cards.size(); ++i) {
+			if (hasCardBeenClicked(i) && state.card_states[i] == CardState::HIDDEN) {
+				return i;
+			}
+		}
+		return -1;
+	};
+
+	switch (state.phase) {
+	case GamePhase::FLIP_FIRST: {
+		int card = getClickedCard();
+		if (card != -1) {
+			state.card_states[card] = CardState::SELECTED;
+			state.first_card = card;
+			state.phase = GamePhase::FLIP_SECOND;
+		}
+		break; }
+	case GamePhase::FLIP_SECOND: {
+		int card = getClickedCard();
+		if (card != -1) {
+			state.card_states[card] = CardState::SELECTED;
+			state.second_card = card;
+			state.wait_frames = 90;
+			state.phase = GamePhase::WAIT;
+		}
+		break; }
+	case GamePhase::WAIT: {
+		if (state.wait_frames-- == 0) {
+			if (state.cards[state.first_card] == state.cards[state.second_card]) {
+				state.card_states[state.first_card] = CardState::MATCHED;
+				state.card_states[state.second_card] = CardState::MATCHED;
+				state.phase = GamePhase::FLIP_FIRST;
+			} else {
+				state.card_states[state.first_card] = CardState::HIDDEN;
+				state.card_states[state.second_card] = CardState::HIDDEN;
+				state.phase = GamePhase::FLIP_FIRST;
+			}
+		}
+		break; }
+	}
+
+	for (size_t i = 0; i < state.cards.size(); ++i) {
 		const float anim_target = state.card_states[i] == CardState::HIDDEN ? 0.0f : 1.0f;
 		state.card_anim_state[i] = stepTowards(state.card_anim_state[i], anim_target, 0.02f);
 		//state.card_anim_state[i] += 0.002f * i;
