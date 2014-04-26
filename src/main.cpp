@@ -17,7 +17,8 @@
 #include "srgb.hpp"
 
 static const unsigned int NUM_CARD_SPRITES = 13;
-static const int CARD_SIZE = 64;
+static const int CARD_WIDTH = 64;
+static const int CARD_HEIGHT = 64;
 
 static const int WINDOW_WIDTH = 360;
 static const int WINDOW_HEIGHT = 480;
@@ -91,7 +92,7 @@ struct YksDrawState {
 yks::IntRect getRectForCard(const GameState& state, const int card_i) {
 	const int card_x = card_i % state.playfield_width;
 	const int card_y = card_i / state.playfield_width;
-	return yks::IntRect{ card_x * (CARD_SIZE + 8), card_y * (CARD_SIZE + 8), CARD_SIZE, CARD_SIZE };
+	return yks::IntRect{ card_x * (CARD_WIDTH + 8), card_y * (CARD_HEIGHT + 8), CARD_WIDTH, CARD_HEIGHT };
 }
 
 bool isPointInRect(const int x, const int y, const yks::IntRect& rect) {
@@ -161,7 +162,7 @@ void draw_game(const GameState& game_state, YksDrawState& draw_state) {
 		for (int x = 0; x < game_state.playfield_width; ++x) {
 			const size_t card_index = y * game_state.playfield_width + x;
 			const float card_hscale = std::cos(game_state.card_anim_state[card_index] * yks::pi);
-			const yks::vec2 half_card = yks::mvec2(0.5f * CARD_SIZE, 0.5f * CARD_SIZE);
+			const yks::vec2 half_card = yks::mvec2(0.5f * CARD_WIDTH, 0.5f * CARD_HEIGHT);
 
 			uint8_t col = yks::byte_from_linear(std::abs(card_hscale));
 			card_spr.color = yks::Color{ col, col, col, 255 };
@@ -169,14 +170,14 @@ void draw_game(const GameState& game_state, YksDrawState& draw_state) {
 				const int tile_i = game_state.cards[card_index] + 1;
 				const int tile_x = tile_i % 4;
 				const int tile_y = tile_i / 4;
-				card_spr.img = yks::IntRect{ tile_x * CARD_SIZE, tile_y * CARD_SIZE, CARD_SIZE, CARD_SIZE };
+				card_spr.img = yks::IntRect{ tile_x * CARD_WIDTH, tile_y * CARD_HEIGHT, CARD_WIDTH, CARD_HEIGHT };
 			} else {
-				card_spr.img = yks::IntRect{ 0, 0, CARD_SIZE, CARD_SIZE };
+				card_spr.img = yks::IntRect{ 0, 0, CARD_WIDTH, CARD_HEIGHT };
 			}
 			card_spr.mat.identity()
 				.translate(-half_card)
 				.scale(yks::mvec2(std::abs(card_hscale), 1.0f))
-				.translate(half_card + yks::mvec2(x * (CARD_SIZE + 8), y * (CARD_SIZE + 8)).typecast<float>());
+				.translate(half_card + yks::mvec2(x * (CARD_WIDTH + 8), y * (CARD_HEIGHT + 8)).typecast<float>());
 			draw_state.card_buffer.append(card_spr);
 		}
 	}
